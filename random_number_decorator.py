@@ -5,7 +5,7 @@ import random
 # TODO: enhance a Python function that checks whether a random number is greater than 8 
 # with retries and failure handling using Python decorators. 
 # Task is to complete the decorator and see how the function retries up to ten times before succeeding or stopping!
-def retry_on_exception(max_attempts=10, wait_time=1):
+def retry_on_exception(max_attempts, wait_time):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -23,7 +23,7 @@ def retry_on_exception(max_attempts=10, wait_time=1):
 
 
 # Example function using the decorator for retry logic
-@retry_on_exception(max_attempts=10, wait_time=1)
+@retry_on_exception(max_attempts=5, wait_time=1)
 def check_random_number():
     num = random.randint(1, 10)
     if num <= 8:
