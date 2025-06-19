@@ -1,8 +1,33 @@
 from openai import OpenAI
 import requests
 import io 
+import time
+from functools import wraps
 
 client = OpenAI()
+
+# adding a decorator to handle retry on error: 
+def retry_on_error(max_retries=3, delay=5):
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+
+                except Exception as e:
+                    retries += 1
+                    if retries == max_retries:
+                        raise
+                    print(f"Error: {e}. Retrying in {delay} seconds...")
+                    time.sleep(delay)
+            return None
+        return wrapper
+    
+    return decorator
 
 def basic_example():
     try:
@@ -48,6 +73,8 @@ def transcribe_audio(file_path):
     except Exception as e:
         raise Exception(f"Transcription failed: {str(e)}")
     
+# Adding a retry decorator to the transcribe_remote function
+@retry_on_error(max_retries=3, delay=5)
 def transcribe_remote(url):
     """
     Transcribe a remote video file from a URL using OpenAI's Whisper API.
@@ -65,7 +92,8 @@ def transcribe_remote(url):
             
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
-            file=('video.mp4', response.content)
+            file=('video.mp4', response.content),
+            timeout=60
         )
         return transcript.text
             
