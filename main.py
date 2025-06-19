@@ -78,17 +78,22 @@ def transcribe_audio_from_url(url):
     # TODO: Open the audio file in binary mode
 
     #  Whisper API needs a file-like object, not just a tuple of filename and bytes. Passing ('audio.mp3', response.content) won’t work as expected. 
-    if response.status_code == 200:
-        with open('output.mp3', 'wb') as f:
-            f.write(response.content)
-        print("Saved MP3 successfully!")
-    else:
-        print(f"Failed to download MP3. Status code: {response.status_code}")
-        
+    # if response.status_code == 200:
+    #     with open('output.mp3', 'wb') as f:
+    #         f.write(response.content)
+    #     print("Saved MP3 successfully!")
+    # else:
+    #     print(f"Failed to download MP3. Status code: {response.status_code}")
+
+
+    # passing file-like object to OpenAI API
+    audio_byte = io.BytesIO(response.content)
+    audio_byte.name = 'audio.mp3'  # Set a name for the BytesIO object to mimic a file
+
     # TODO: Create a transcription request with a timeout and specific model
     transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=('output.mp3', response.content)
+            model = "whisper-1",
+            file  = audio_byte
         )
     return transcript.text
     # TODO: Print the transcribed text
