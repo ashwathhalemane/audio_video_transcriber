@@ -1,0 +1,3 @@
+# ignoring environment files and sensitive data
+.env
+.env.example

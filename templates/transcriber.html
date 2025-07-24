@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video/Audio Transcriber</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .main-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f8f9ff;
+        }
+        .transcription-output {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="text-center mb-4">
+            <h1 class="display-4 text-primary">
+                <i class="fas fa-file-audio text-danger"></i> Video/Audio Transcriber
+            </h1>
+            <p class="lead text-muted">Upload or provide URL to transcribe audio/video files.</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div id="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <i class="fas fa-file-upload fa-3x text-danger mb-3"></i>
+                    <h4>Drop your audio/video file here or click to browse</h4>
+                    <p class="text-muted">Supported formats: MP3, WAV, FLAC, MP4, AVI, etc. (Max 100MB)</p>
+                    <input type="file" class="form-control-file d-none" id="fileInput" name="file" accept="audio/*,video/*" required>
+                    <button type="button" class="btn btn-secondary btn-sm mt-2" id="browseBtn">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-lg mt-3" id="uploadBtn">
+                        <i class="fas fa-upload"></i> Upload File
+                    </button>
+                </form>
+            </div>
+
+            <!-- URL Input -->
+            <form id="urlForm" class="mt-4">
+                <div class="input-group mb-2">
+                    <input type="text" class="form-control form-control-lg" id="urlInput"
+                        placeholder="Enter audio/video URL (YouTube, LinkedIn, Google Drive, etc.)...">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-success btn-lg" id="urlSubmitBtn">
+                            <i class="fas fa-link"></i> Basic URL
+                        </button>
+                        <button type="button" class="btn btn-primary btn-lg" id="enhancedUrlBtn">
+                            <i class="fas fa-rocket"></i> Enhanced URL
+                        </button>
+                    </div>
+                </div>
+                <small class="text-muted">Enhanced URL supports: Google Drive, LinkedIn, YouTube, and more platforms</small>
+            </form>
+
+            <!-- Result Box -->
+            <div id="uploadResult" class="alert d-none mt-3"></div>
+        </div>
+
+        <!-- Transcriptions Section -->
+        <div id="transcriptionResults" class="transcription-output">
+            <h3>Transcription Results</h3>
+            <div id="transcriptions"></div>
+        </div>
+    </div>
+
+    <!-- Dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+
+    <!-- App Script -->
+    <script>
+        $(document).ready(function () {
+            const uploadArea = $('#uploadArea');
+            const fileInput = $('#fileInput');
+            const browseBtn = $('#browseBtn');
+
+            // Drag and drop
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea[0].addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea[0].addEventListener(eventName, () => uploadArea.addClass('dragover'), false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea[0].addEventListener(eventName, () => uploadArea.removeClass('dragover'), false);
+            });
+
+            uploadArea[0].addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput[0].files = files;
+                    $('#uploadForm').submit();
+                }
+            });
+
+            browseBtn.on('click', () => fileInput.click());
+
+            fileInput.on('change', () => {
+                if (fileInput[0].files.length > 0) {
+                    $('#uploadForm').submit();
+                }
+            });
+
+            $('#uploadForm').on('submit', function (e) {
+                e.preventDefault();
+                const file = fileInput[0].files[0];
+                if (!file) {
+                    showStatus('Please select a file first.', 'warning');
+                    return;
+                }
+                showStatus(`Uploading "${file.name}"...`, 'info');
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                $.ajax({
+                    url: '/api/upload',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: (response) => {
+                        showStatus(response.message || 'Upload successful!', 'success');
+                    },
+                    error: (xhr) => {
+                        const err = xhr.responseJSON?.error || 'Upload failed';
+                        showStatus(err, 'danger');
+                    }
+                });
+            });
+
+            $('#urlForm').on('submit', function (e) {
+                e.preventDefault();
+                const url = $('#urlInput').val().trim();
+                if (!url) return showStatus('Please enter a valid URL.', 'warning');
+
+                showStatus('Transcribing via Basic URL...', 'info');
+                $.ajax({
+                    url: '/api/transcribe-url',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ url }),
+                    success: res => showStatus(res.message || 'URL transcription started.', 'success'),
+                    error: xhr => {
+                        const err = xhr.responseJSON?.error || 'Basic URL transcription failed.';
+                        showStatus(err, 'danger');
+                    }
+                });
+            });
+
+            $('#enhancedUrlBtn').on('click', function () {
+                const url = $('#urlInput').val().trim();
+                if (!url) return showStatus('Please enter a valid URL.', 'warning');
+
+                showStatus('Processing Enhanced URL...', 'info');
+                $.ajax({
+                    url: '/api/enhanced-url',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ url }),
+                    success: res => showStatus(`${res.message} (${res.url_type})`, 'success'),
+                    error: xhr => {
+                        const err = xhr.responseJSON?.error || 'Enhanced URL failed.';
+                        const install = xhr.responseJSON?.install_command;
+                        showStatus(install ? `${err}. Run: ${install}` : err, install ? 'warning' : 'danger');
+                    }
+                });
+            });
+
+            function showStatus(message, type = 'info') {
+                const box = $('#uploadResult');
+                box.removeClass().addClass(`alert alert-${type} mt-3`).text(message);
+            }
+
+            function fetchTranscriptions() {
+                $.ajax({
+                    url: '/api/transcriptions',
+                    type: 'GET',
+                    success: function (res) {
+                        const container = $('#transcriptions');
+                        container.empty();
+
+                        res.processing_jobs.forEach(job => {
+                            const statusClass = {
+                                queued: 'warning',
+                                processing: 'info',
+                                completed: 'success',
+                                failed: 'danger'
+                            }[job.status] || 'secondary';
+
+                            container.append(`
+                                <div class="card mb-3 border-${statusClass}">
+                                    <div class="card-body">
+                                        <h6 class="card-title">${job.filename || job.url || 'Processing...'}</h6>
+                                        <span class="badge badge-${statusClass}">${job.status.toUpperCase()}</span>
+                                        ${job.status === 'failed' ? `<div class="text-danger mt-2">${job.error}</div>` : ''}
+                                    </div>
+                                </div>
+                            `);
+                        });
+
+                        res.transcriptions.forEach(t => {
+                            const card = $(`
+                                <div class="card mb-3 border-success">
+                                    <div class="card-body">
+                                        <h5>${t.filename} <span class="badge badge-success">COMPLETED</span></h5>
+                                        <div class="bg-light p-2 rounded mt-2" style="max-height:200px;overflow:auto;">${t.transcription}</div>
+                                        <div class="d-flex justify-content-between align-items-center mt-3">
+                                            <small><i class="fas fa-clock"></i> ${new Date(t.timestamp).toLocaleString()}</small>
+                                            <div>
+                                                <button class="btn btn-info btn-sm summarize-btn" data-job-id="${t.job_id}">
+                                                    <i class="fas fa-brain"></i> Summarize
+                                                </button>
+                                                <a href="/api/download/${t.job_id}" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-download"></i> Download
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                            container.append(card);
+
+                            card.find('.summarize-btn').on('click', function () {
+                                const btn = $(this);
+                                const jobId = btn.data('job-id');
+                                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Summarizing...');
+                                $.ajax({
+                                    url: `/api/summarize/${jobId}`,
+                                    type: 'POST',
+                                    success: response => {
+                                        if (response.success) {
+                                            const summaryHtml = `
+                                                <div class="mt-3 p-3 bg-info text-white rounded">
+                                                    <h6><i class="fas fa-brain"></i> AI Summary</h6>
+                                                    <div>${response.summary.replace(/\n/g, '<br>')}</div>
+                                                    ${response.key_topics ? `<div class="mt-2"><strong>Key Topics:</strong><br>${response.key_topics.replace(/\n/g, '<br>')}</div>` : ''}
+                                                    <small class="d-block mt-2">Reduced from ${response.original_length} to ${response.summary_length} characters</small>
+                                                </div>
+                                            `;
+                                            btn.closest('.card-body').append(summaryHtml);
+                                            btn.remove();
+                                        } else {
+                                            showStatus('Summary failed.', 'danger');
+                                            btn.prop('disabled', false).text('Summarize');
+                                        }
+                                    },
+                                    error: xhr => {
+                                        showStatus('Summarization error', 'danger');
+                                        btn.prop('disabled', false).text('Summarize');
+                                    }
+                                });
+                            });
+                        });
+                    },
+                    error: () => console.error('Failed to fetch transcriptions')
+                });
+            }
+
+            setInterval(fetchTranscriptions, 10000); // Poll every 10s
+        });
+    </script>
+</body>
+</html>

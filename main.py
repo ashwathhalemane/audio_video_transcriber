@@ -3,6 +3,7 @@ import requests
 import io 
 import time
 from functools import wraps
+import random
 
 client = OpenAI()
 
@@ -79,6 +80,10 @@ def transcribe_remote(url):
     """
     Transcribe a remote video file from a URL using OpenAI's Whisper API.
     """
+
+    # Simulating a random error for testing purposes... 
+    if random.randint(1, 2) == 1:
+        raise ValueError("Simulated error for testing retry logic.")
     try:
         # TODO: Download the content using the `requests` library
         response = requests.get(url, stream = True)
@@ -100,20 +105,18 @@ def transcribe_remote(url):
     except Exception as e:
         return f"Error: {str(e)}"
     
+
+# TODO: Implement error handling and retrying decorator
+    # DONE
+# TODO: Apply decorator for the `transcribe` method
+# to retry up to 3 times, with a delay of 1 second between retries
+    # DONE
+
+@retry_on_error(max_retries=3, delay=5)
 def transcribe_audio_from_url(url):
-    # TODO: Download the mp3 file from the URL
+
     response = requests.get(url, stream = True)
     # TODO: Open the audio file in binary mode
-
-    #  Whisper API needs a file-like object, not just a tuple of filename and bytes. Passing ('audio.mp3', response.content) won’t work as expected. 
-    # if response.status_code == 200:
-    #     with open('output.mp3', 'wb') as f:
-    #         f.write(response.content)
-    #     print("Saved MP3 successfully!")
-    # else:
-    #     print(f"Failed to download MP3. Status code: {response.status_code}")
-
-
     # passing file-like object to OpenAI API
     audio_byte = io.BytesIO(response.content)
     audio_byte.name = 'audio.mp3'  # Set a name for the BytesIO object to mimic a file

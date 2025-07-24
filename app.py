@@ -5,7 +5,6 @@ from openai import OpenAI
 
 client = OpenAI()
 
-
 # TODO: Implement error handling and retrying decorator
 def retry_on_error(max_retries=3, delay=1):
 
@@ -28,6 +27,7 @@ def retry_on_error(max_retries=3, delay=1):
         return wrapper
     
     return decorator
+
 # TODO: Apply decorator for the `transcribe` method
 # to retry up to 3 times, with a delay of 1 second between retries
 
